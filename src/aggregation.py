@@ -28,6 +28,77 @@ class Pattern:
         self.Elabel = Elabel
       #  self.lastModified = lastModified
 
+
+def removeNodes(pattern):
+
+    delNodes = set()
+    for node in pattern.pNodes:
+        currentNode = pattern.pNodes[node]
+        if len(currentNode.inEdges) == 0 and len(currentNode.outEdges) == 0:
+            delNodes.add(node)
+
+    for x in delNodes:
+        pattern.pNodes.pop(x)
+
+
+def joinNodes(pattern):
+
+    deleted = False
+    deleteNodes = set()
+    delInEdges = set()
+    delOutEdges = set()
+    for node1 in pattern.pNodes:
+        if node1 not in deleteNodes:
+            for node2 in pattern.pNodes:
+                if node1 != node2 and pattern.pNodes[node1].IPaddresses == pattern.pNodes[node2].IPaddresses:
+                    # premjesti node2 ulazne u node1 izlazne
+                    for i in pattern.pNodes[node2].inEdges:
+                        edge2 = pattern.pEdges[i]
+                        duplicate = False
+                        for j in pattern.pNodes[node1].inEdges:
+                            edge1 = pattern.pEdges[j]
+                            if edge1.attackClass == edge2.attackClass and edge1.sourceNode == edge2.sourceNode:
+                                duplicate = True
+                                break
+                        if not duplicate:
+                            newEdge = Edge(edge2.sourceNode, node1, edge2.attackClass)
+                            pattern.pEdges[pattern.Elabel] = newEdge
+                            pattern.pNodes[node1].inEdges.add(pattern.Elabel)
+                            pattern.Elabel = pattern.Elabel + 1
+
+                    # premjesti node2 izlazne u node1 izlazne
+                    for i in pattern.pNodes[node2].outEdges:
+                        edge2 = pattern.pEdges[i]
+                        duplicate = False
+                        for j in pattern.pNodes[node1].outEdges:
+                            edge1 = pattern.pEdges[j]
+                            if edge1.attackClass == edge2.attackClass and edge1.destNode == edge2.destNode:
+                                duplicate = True
+                                break
+                        if not duplicate:
+                            newEdge = Edge(node1, edge2.destNode, edge2.attackClass)
+                            pattern.pEdges[pattern.Elabel] = newEdge
+                            pattern.pNodes[node1].outEdges.add(pattern.Elabel)
+                            pattern.Elabel = pattern.Elabel + 1
+                    # obrisi node2
+                    deleteNodes.add(node2)
+                    delInEdges.update(pattern.pNodes[node2].inEdges)
+                    delOutEdges.update(pattern.pNodes[node2].outEdges)
+    if len(deleteNodes) > 0:
+        deleted = True
+    for x in deleteNodes:
+        pattern.pNodes.pop(x)
+    for y in delInEdges:
+        src = pattern.pNodes[pattern.pEdges[y].sourceNode]
+        src.outEdges.remove(y)
+        pattern.pEdges.pop(y)
+    for z in delOutEdges:
+        dst = pattern.pNodes[pattern.pEdges[z].destNode]
+        dst.inEdges.remove(z)
+        pattern.pEdges.pop(z)
+    return deleted
+
+
 def deleteEdges(edges, s):
     pattern = edges[0]
     if s == "OneToMany":
@@ -44,6 +115,7 @@ def deleteEdges(edges, s):
 
 
 def createNodes(nodes, s):
+    # DODATI U PATTERNHASHTABLE
     pattern = nodes[0]
 
     ipadd = set()
@@ -124,9 +196,9 @@ def ManyToOne(p):
 #key u hash table su i sourceip i destip, a value je (pattern, node)
 patternHashTable = {}
 activePatterns = {}
-nodes = {}
-edges = {}
-file = open("manyToMany.txt", "r")
+# nodes = {}
+# edges = {}
+file = open("manyToOne.txt", "r")
 line = file.readline()
 plabel= 0
 
@@ -218,9 +290,12 @@ for p in stablePatterns:
         test = False
         currentPattern = stablePatterns[p]
         OneToMany(currentPattern)
-        #remove() u remove postavit test
+        x = joinNodes(currentPattern)
         ManyToOne(currentPattern)
-        #remove()
+        y = joinNodes(currentPattern)
+        removeNodes(currentPattern)
+        if x or y:
+            test = True
 
 
 for pat in stablePatterns:
