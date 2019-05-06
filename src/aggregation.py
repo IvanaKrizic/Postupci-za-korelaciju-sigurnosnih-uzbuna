@@ -42,62 +42,58 @@ def removeNodes(pattern):
 
 
 def joinNodes(pattern):
-
     deleted = False
-    deleteNodes = set()
-    delInEdges = set()
-    delOutEdges = set()
+    deleteNode = 0
     for node1 in pattern.pNodes:
-        if node1 not in deleteNodes:
-            for node2 in pattern.pNodes:
-                if node1 != node2 and pattern.pNodes[node1].IPaddresses == pattern.pNodes[node2].IPaddresses:
-                    # premjesti node2 ulazne u node1 izlazne
-                    for i in pattern.pNodes[node2].inEdges:
-                        edge2 = pattern.pEdges[i]
-                        duplicate = False
-                        for j in pattern.pNodes[node1].inEdges:
-                            edge1 = pattern.pEdges[j]
-                            if edge1.attackClass == edge2.attackClass and edge1.sourceNode == edge2.sourceNode:
-                                duplicate = True
-                                break
-                        if not duplicate:
-                            newEdge = Edge(edge2.sourceNode, node1, edge2.attackClass)
-                            pattern.pEdges[pattern.Elabel] = newEdge
-                            pattern.pNodes[node1].inEdges.add(pattern.Elabel)
-                            pattern.Elabel = pattern.Elabel + 1
+        for node2 in pattern.pNodes:
+            if node1 != node2 and pattern.pNodes[node1].IPaddresses == pattern.pNodes[node2].IPaddresses:
+                # premjesti node2 ulazne u node1 izlazne
+                for i in pattern.pNodes[node2].inEdges:
+                    edge2 = pattern.pEdges[i]
+                    duplicate = False
+                    for j in pattern.pNodes[node1].inEdges:
+                        edge1 = pattern.pEdges[j]
+                        if edge1.attackClass == edge2.attackClass and edge1.sourceNode == edge2.sourceNode:
+                            duplicate = True
+                            break
+                    if not duplicate:
+                        newEdge = Edge(edge2.sourceNode, node1, edge2.attackClass)
+                        pattern.pEdges[pattern.Elabel] = newEdge
+                        pattern.pNodes[node1].inEdges.add(pattern.Elabel)
+                        pattern.Elabel = pattern.Elabel + 1
 
-                    # premjesti node2 izlazne u node1 izlazne
-                    for i in pattern.pNodes[node2].outEdges:
-                        edge2 = pattern.pEdges[i]
-                        duplicate = False
-                        for j in pattern.pNodes[node1].outEdges:
-                            edge1 = pattern.pEdges[j]
-                            if edge1.attackClass == edge2.attackClass and edge1.destNode == edge2.destNode:
-                                duplicate = True
-                                break
-                        if not duplicate:
-                            newEdge = Edge(node1, edge2.destNode, edge2.attackClass)
-                            pattern.pEdges[pattern.Elabel] = newEdge
-                            pattern.pNodes[node1].outEdges.add(pattern.Elabel)
-                            pattern.Elabel = pattern.Elabel + 1
-                    # obrisi node2
-                    deleteNodes.add(node2)
-                    delInEdges.update(pattern.pNodes[node2].inEdges)
-                    delOutEdges.update(pattern.pNodes[node2].outEdges)
-    if len(deleteNodes) > 0:
-        deleted = True
-    for x in deleteNodes:
-        pattern.pNodes.pop(x)
-    for y in delInEdges:
-        src = pattern.pNodes[pattern.pEdges[y].sourceNode]
-        src.outEdges.remove(y)
-        pattern.pEdges.pop(y)
-    for z in delOutEdges:
-        dst = pattern.pNodes[pattern.pEdges[z].destNode]
-        dst.inEdges.remove(z)
-        pattern.pEdges.pop(z)
+                # premjesti node2 izlazne u node1 izlazne
+                for i in pattern.pNodes[node2].outEdges:
+                    edge2 = pattern.pEdges[i]
+                    duplicate = False
+                    for j in pattern.pNodes[node1].outEdges:
+                        edge1 = pattern.pEdges[j]
+                        if edge1.attackClass == edge2.attackClass and edge1.destNode == edge2.destNode:
+                            duplicate = True
+                            break
+                    if not duplicate:
+                        newEdge = Edge(node1, edge2.destNode, edge2.attackClass)
+                        pattern.pEdges[pattern.Elabel] = newEdge
+                        pattern.pNodes[node1].outEdges.add(pattern.Elabel)
+                        pattern.Elabel = pattern.Elabel + 1
+                # obrisi node2
+                for x in pattern.pNodes[node2].inEdges:
+                    pattern.pNodes[pattern.pEdges[x].sourceNode].outEdges.difference_update(set([x]))
+                    pattern.pEdges.pop(x)
+                for x in pattern.pNodes[node2].outEdges:
+                    pattern.pNodes[pattern.pEdges[x].destNode].inEdges.difference_update(set([x]))
+                    pattern.pEdges.pop(x)
+                deleteNode = node2
+                deleted = True
+                break
+
+        if deleted:
+            break
+
+    if not deleted:
+        return deleted
+    pattern.pNodes.pop(deleteNode)
     return deleted
-
 
 def deleteEdges(edges, s):
     pattern = edges[0]
@@ -115,13 +111,13 @@ def deleteEdges(edges, s):
 
 
 def createNodes(nodes, s):
-    # DODATI U PATTERNHASHTABLE
     pattern = nodes[0]
 
     ipadd = set()
+    print(pattern.pNodes)
     for label in nodes[2]:
-        for m in pattern.pNodes[label].IPaddresses:
-            ipadd.add(m)
+        print(label)
+        ipadd.update(pattern.pNodes[label].IPaddresses)
 
     if s == "OneToMany":
         pattern.pNodes[nodes[1]].outEdges.add(pattern.Elabel)
@@ -196,8 +192,6 @@ def ManyToOne(p):
 #key u hash table su i sourceip i destip, a value je (pattern, node)
 patternHashTable = {}
 activePatterns = {}
-# nodes = {}
-# edges = {}
 file = open("manyToOne.txt", "r")
 line = file.readline()
 plabel= 0
@@ -290,12 +284,13 @@ for p in stablePatterns:
         test = False
         currentPattern = stablePatterns[p]
         OneToMany(currentPattern)
+        removeNodes(currentPattern)
         x = joinNodes(currentPattern)
         ManyToOne(currentPattern)
-        y = joinNodes(currentPattern)
         removeNodes(currentPattern)
-        if x or y:
-            test = True
+        y = joinNodes(currentPattern)
+        #if y:
+            #test = True
 
 
 for pat in stablePatterns:
