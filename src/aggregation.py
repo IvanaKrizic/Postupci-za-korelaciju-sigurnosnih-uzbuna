@@ -1,3 +1,5 @@
+import datetime
+
 class Alert:
     def __init__(self, sourceIP, destinationIP, attackClass, timestamp):
         self.sourceIP = sourceIP
@@ -21,13 +23,28 @@ class Edge:
 
 
 class Pattern:
-    def __init__(self, pNodes, pEdges, Vlabel, Elabel):
+    def __init__(self, pNodes, pEdges, Vlabel, Elabel, lastModified):
         self.pNodes = pNodes
         self.pEdges = pEdges
         self.Vlabel = Vlabel
         self.Elabel = Elabel
-      #  self.lastModified = lastModified
+        self.lastModified = lastModified
 
+
+def generalization():
+    for p in stablePatterns:
+        test = True
+        while test:
+            test = False
+            currentPattern = stablePatterns[p]
+            OneToMany(currentPattern)
+            removeNodes(currentPattern)
+            x = joinNodes(currentPattern)
+            ManyToOne(currentPattern)
+            removeNodes(currentPattern)
+            y = joinNodes(currentPattern)
+            if x or y:
+                test = True
 
 def removeNodes(pattern):
 
@@ -60,6 +77,7 @@ def joinNodes(pattern):
                         newEdge = Edge(edge2.sourceNode, node1, edge2.attackClass)
                         pattern.pEdges[pattern.Elabel] = newEdge
                         pattern.pNodes[node1].inEdges.add(pattern.Elabel)
+                        pattern.pNodes[edge2.sourceNode].outEdges.add(pattern.Elabel)
                         pattern.Elabel = pattern.Elabel + 1
 
                 # premjesti node2 izlazne u node1 izlazne
@@ -75,6 +93,7 @@ def joinNodes(pattern):
                         newEdge = Edge(node1, edge2.destNode, edge2.attackClass)
                         pattern.pEdges[pattern.Elabel] = newEdge
                         pattern.pNodes[node1].outEdges.add(pattern.Elabel)
+                        pattern.pNodes[edge2.destNode].inEdges.add(pattern.Elabel)
                         pattern.Elabel = pattern.Elabel + 1
                 # obrisi node2
                 for x in pattern.pNodes[node2].inEdges:
@@ -114,9 +133,7 @@ def createNodes(nodes, s):
     pattern = nodes[0]
 
     ipadd = set()
-    print(pattern.pNodes)
     for label in nodes[2]:
-        print(label)
         ipadd.update(pattern.pNodes[label].IPaddresses)
 
     if s == "OneToMany":
@@ -124,7 +141,6 @@ def createNodes(nodes, s):
         newEdge = Edge(nodes[1], pattern.Vlabel, nodes[3])
         newNode = Node(ipadd, set([pattern.Elabel]), set([]))
     elif s == "ManyToOne":
-        # print(nodes)
         pattern.pNodes[nodes[1]].inEdges.add(pattern.Elabel)
         newEdge = Edge(pattern.Vlabel, nodes[1], nodes[3])
         newNode = Node(ipadd, set([]), set([pattern.Elabel]))
@@ -192,15 +208,37 @@ def ManyToOne(p):
 #key u hash table su i sourceip i destip, a value je (pattern, node)
 patternHashTable = {}
 activePatterns = {}
-file = open("manyToOne.txt", "r")
+stablePatterns = {}
+file = open("test1.txt", "r")
 line = file.readline()
 plabel= 0
-
+stableplabel = 0
+time = input("Enter keep active period: ")
+keepActive = datetime.timedelta(seconds = time)
 
 while line:
     splitted = line.split(",")
-    currentAlert = Alert(splitted[9], splitted[12], splitted[37], splitted[7])
+    currentAlert = Alert(splitted[9], splitted[12], splitted[37], datetime.datetime.strptime(splitted[7], '%Y-%m-%d %H:%M:%S'))
     insert = False
+
+    movePatt = set()
+    for p in activePatterns:
+        if currentAlert.timestamp - activePatterns[p].lastModified > keepActive:
+            # prebaci iz active u stable
+            movePatt.add(p)
+            stablePatterns[stableplabel] = activePatterns[p]
+            stableplabel = stableplabel + 1
+            # makni sve iz hashtablea
+            delPatt = set()
+            for hash in patternHashTable:
+                if patternHashTable[hash][0] == p:
+                    delPatt.add(hash)
+
+            for delp in delPatt:
+                patternHashTable.pop(delp)
+
+    for move in movePatt:
+        activePatterns.pop(move)
 
     if currentAlert.sourceIP in patternHashTable:
         insert = True
@@ -224,6 +262,8 @@ while line:
                                                             currentPattern.Vlabel)
             currentPattern.Vlabel = currentPattern.Vlabel + 1
             currentPattern.Elabel = currentPattern.Elabel + 1
+
+        currentPattern.lastModified = currentAlert.timestamp
 
     elif currentAlert.destinationIP in patternHashTable:
         insert = True
@@ -250,6 +290,8 @@ while line:
             currentPattern.Vlabel = currentPattern.Vlabel + 1
             currentPattern.Elabel = currentPattern.Elabel + 1
 
+        currentPattern.lastModified = currentAlert.timestamp
+
     if not insert:
         pattNodes = dict()
         pattEdges = dict()
@@ -263,12 +305,30 @@ while line:
         # hashiraj alert po dest
         patternHashTable[currentAlert.destinationIP] = (plabel, 1)
         # stvori novi pattern
-        activePatterns[plabel] = Pattern(pattNodes, pattEdges, 2, 1)  # sljedeci vlabel je 2, slj elabel je 1
+        activePatterns[plabel] = Pattern(pattNodes, pattEdges, 2, 1, currentAlert.timestamp)  # sljedeci vlabel je 2, slj elabel je 1
         plabel = plabel + 1
 
     line = file.readline()
 
-stablePatterns = activePatterns
+# prebaci ostatak iz active u stable
+movePatt = set()
+for p in activePatterns:
+    movePatt.add(p)
+    stablePatterns[stableplabel] = activePatterns[p]
+    stableplabel = stableplabel + 1
+    delPatt = set()
+    for hash in patternHashTable:
+        if patternHashTable[hash][0] == p:
+            delPatt.add(hash)
+
+    for delp in delPatt:
+        patternHashTable.pop(delp)
+
+for move in movePatt:
+    activePatterns.pop(move)
+
+generalization()
+
 """
 for pat in stablePatterns:
     for n in stablePatterns[pat].pNodes:
@@ -278,20 +338,6 @@ for pat in stablePatterns:
         m = stablePatterns[pat].pEdges[e]
         print(e, m.sourceNode, m.destNode, m.attackClass)
 """
-for p in stablePatterns:
-    test = True
-    while test:
-        test = False
-        currentPattern = stablePatterns[p]
-        OneToMany(currentPattern)
-        removeNodes(currentPattern)
-        x = joinNodes(currentPattern)
-        ManyToOne(currentPattern)
-        removeNodes(currentPattern)
-        y = joinNodes(currentPattern)
-        #if y:
-            #test = True
-
 
 for pat in stablePatterns:
     for n in stablePatterns[pat].pNodes:
@@ -300,5 +346,53 @@ for pat in stablePatterns:
     for e in stablePatterns[pat].pEdges:
         m = stablePatterns[pat].pEdges[e]
         print(e, m.sourceNode, m.destNode, m.attackClass)
+
+inputNodes = {}
+inputNodeLabel = 0
+inputEdges = {}
+inputEdgeLabel = 0
+input = open("data.txt", "w")
+
+pattenrdict = {}
+
+for p in stablePatterns:
+    input.write("t # " + str(p) + "\n")
+    i = 0
+    nod = {}
+    for v in stablePatterns[p].pNodes:
+        sortedTuple = tuple(sorted(stablePatterns[p].pNodes[v].IPaddresses))
+        if sortedTuple not in inputNodes:
+            inputNodes[sortedTuple] = inputNodeLabel
+            inputNodeLabel = inputNodeLabel + 1
+        nod[v] = i
+        input.write("v " + str(i) + " " + str(inputNodes[sortedTuple]) + "\n")
+        i = i + 1
+
+    pattenrdict[p] = nod
+
+    for e in stablePatterns[p].pEdges:
+        ine = sorted(tuple(stablePatterns[p].pNodes[v].IPaddresses))
+        oute = sorted(tuple(stablePatterns[p].pNodes[v].IPaddresses))
+        if stablePatterns[p].pEdges[e].attackClass not in inputEdges:
+            inputEdges[stablePatterns[p].pEdges[e].attackClass] = inputEdgeLabel
+            inputEdgeLabel = inputEdgeLabel + 1
+        input.write("e " + str(pattenrdict[p][stablePatterns[p].pEdges[e].sourceNode]) + " " + \
+                    str(pattenrdict[p][stablePatterns[p].pEdges[e].destNode]) + " " + \
+                                   str(inputEdges[stablePatterns[p].pEdges[e].attackClass]) + "\n")
+
+output = open("outnodes.txt", "w")
+outDict = {}
+for x in inputNodes:
+    outDict[inputNodes[x]] = x
+
+for y in outDict:
+    output.write(str(y) + "|")
+    for m in outDict[y]:
+        output.write(str(m) + ",")
+    output.write("\n")
+
+outputedges = open("outedges.txt", "w")
+for x in inputEdges:
+    outputedges.write(str(inputEdges[x]) + "," + str(x) + "\n")
 
 file.close()
