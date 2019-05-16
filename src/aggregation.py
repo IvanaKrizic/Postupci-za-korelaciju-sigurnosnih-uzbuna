@@ -209,7 +209,7 @@ def ManyToOne(p):
 patternHashTable = {}
 activePatterns = {}
 stablePatterns = {}
-file = open("test1.txt", "r")
+file = open("inputfiles/dmz1_events_sorted.txt", "r")
 line = file.readline()
 plabel= 0
 stableplabel = 0
@@ -337,7 +337,7 @@ for pat in stablePatterns:
     for e in stablePatterns[pat].pEdges:
         m = stablePatterns[pat].pEdges[e]
         print(e, m.sourceNode, m.destNode, m.attackClass)
-"""
+
 
 for pat in stablePatterns:
     for n in stablePatterns[pat].pNodes:
@@ -346,12 +346,12 @@ for pat in stablePatterns:
     for e in stablePatterns[pat].pEdges:
         m = stablePatterns[pat].pEdges[e]
         print(e, m.sourceNode, m.destNode, m.attackClass)
-
+"""
 inputNodes = {}
 inputNodeLabel = 0
 inputEdges = {}
 inputEdgeLabel = 0
-input = open("data.txt", "w")
+input = open("gaston-1.1/data.txt", "w")
 
 pattenrdict = {}
 
