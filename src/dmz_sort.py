@@ -1,4 +1,4 @@
-file = open("dmz1_events.txt", "r")
+file = open("inputfiles/inside1_events.txt", "r")
 out = open("dmz1_events_sorted.txt", "w")
 lines = []
 line = file.readline()

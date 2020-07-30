@@ -34,9 +34,9 @@ class Pattern:
 def generalization():
     for p in stablePatterns:
         test = True
+        currentPattern = stablePatterns[p]
         while test:
             test = False
-            currentPattern = stablePatterns[p]
             OneToMany(currentPattern)
             removeNodes(currentPattern)
             x = joinNodes(currentPattern)
@@ -151,26 +151,26 @@ def createNodes(nodes, s):
     pattern.Elabel = pattern.Elabel + 1
 
 
-def OneToMany(p):
+def OneToMany(pattern):
     nodes = []
     edges = []
-    for node in p.pNodes:
-        currentNode = p.pNodes[node]
+    for node in pattern.pNodes:
+        currentNode = pattern.pNodes[node]
         visited = set()
         for x in currentNode.outEdges:
             generalize = []
             deledges = set()
-            generalize.append(p.pEdges[x].destNode)
+            generalize.append(pattern.pEdges[x].destNode)
             deledges.add(x)
-            if p.pEdges[x].attackClass not in visited:
-                visited.add(p.pEdges[x].attackClass)
+            if pattern.pEdges[x].attackClass not in visited:
+                visited.add(pattern.pEdges[x].attackClass)
                 for y in currentNode.outEdges:
-                    if x != y and p.pEdges[x].attackClass == p.pEdges[y].attackClass:
-                        generalize.append(p.pEdges[y].destNode)
+                    if x != y and pattern.pEdges[x].attackClass == pattern.pEdges[y].attackClass:
+                        generalize.append(pattern.pEdges[y].destNode)
                         deledges.add(y)
             if len(generalize) > 1:
-                nodes.append((p, node, set(generalize), p.pEdges[x].attackClass))
-                edges.append((p, node, set(generalize), deledges))
+                nodes.append((pattern, node, set(generalize), pattern.pEdges[x].attackClass))
+                edges.append((pattern, node, set(generalize), deledges))
 
     for x in nodes:
         createNodes(x, "OneToMany")
@@ -178,27 +178,27 @@ def OneToMany(p):
         deleteEdges(y, "OneToMany")
 
 
-def ManyToOne(p):
+def ManyToOne(pattern):
     nodes = []
     edges = []
-    for node in p.pNodes:
-        currentNode = p.pNodes[node]
+    for node in pattern.pNodes:
+        currentNode = pattern.pNodes[node]
         visited = set()
         for x in currentNode.inEdges:
             generalize = []
             deledges = set()
-            m = p.pEdges[x].sourceNode
+            m = pattern.pEdges[x].sourceNode
             generalize.append(m)
             deledges.add(x)
-            if p.pEdges[x].attackClass not in visited:
-                visited.add(p.pEdges[x].attackClass)
+            if pattern.pEdges[x].attackClass not in visited:
+                visited.add(pattern.pEdges[x].attackClass)
                 for y in currentNode.inEdges:
-                    if x != y and p.pEdges[x].attackClass == p.pEdges[y].attackClass:
-                        generalize.append(p.pEdges[y].sourceNode)
+                    if x != y and pattern.pEdges[x].attackClass == pattern.pEdges[y].attackClass:
+                        generalize.append(pattern.pEdges[y].sourceNode)
                         deledges.add(y)
             if len(generalize) > 1:
-                nodes.append((p, node, set(generalize), p.pEdges[x].attackClass))
-                edges.append((p, node, set(generalize), deledges))
+                nodes.append((pattern, node, set(generalize), pattern.pEdges[x].attackClass))
+                edges.append((pattern, node, set(generalize), deledges))
 
     for x in nodes:
         createNodes(x, "ManyToOne")
@@ -209,13 +209,12 @@ def ManyToOne(p):
 patternHashTable = {}
 activePatterns = {}
 stablePatterns = {}
-file = open("inputfiles/dmz1_events_sorted.txt", "r")
+file = open("inside1_events_sorted.txt", "r")
 line = file.readline()
 plabel= 0
 stableplabel = 0
-time = input("Enter keep active period: ")
+time = int(input("Enter keep active period: "))
 keepActive = datetime.timedelta(seconds = time)
-
 while line:
     splitted = line.split(",")
     currentAlert = Alert(splitted[9], splitted[12], splitted[37], datetime.datetime.strptime(splitted[7], '%Y-%m-%d %H:%M:%S'))

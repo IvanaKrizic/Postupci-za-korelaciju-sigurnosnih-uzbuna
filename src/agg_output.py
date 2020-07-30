@@ -18,15 +18,13 @@ while line2:
     edges[str[0]] = str[1]
     line2 = file2.readline()
 
-file3 = open("out.txt", "r")
-output = open("freqPatterns.txt", "w")
+file3 = open("data.txt", "r")
+output = open("patterns.txt", "w")
 line3 = file3.readline()
 while line3:
-    if line3.startswith("#"):
-        num = line3.strip().split(" ")[1]
-        line3 = file3.readline()
-        patt = line3.strip().split(" ")[1]
-        output.write("  Pattern #" + patt + " with frequency " + num + "\n")
+    if line3.startswith("t"):
+        patLabel = line3.strip().split(" ")[2]
+        output.write("  Pattern #" + patLabel +"\n")
         line3 = file3.readline()
         pNodes = {}
         while line3.startswith("v"):
