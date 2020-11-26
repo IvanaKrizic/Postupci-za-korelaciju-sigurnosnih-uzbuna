@@ -1,4 +1,7 @@
+#!/usr/bin/python3
+
 import datetime
+import json
 
 class Alert:
     def __init__(self, sourceIP, destinationIP, attackClass, timestamp):
@@ -6,7 +9,8 @@ class Alert:
         self.destinationIP = destinationIP
         self.attackClass = attackClass
         self.timestamp = timestamp
-
+    def __repr__(self):
+        return str(self.__dict__)
 
 class Node:
     def __init__(self, IPaddresses, inEdges, outEdges):
@@ -34,9 +38,9 @@ class Pattern:
 def generalization():
     for p in stablePatterns:
         test = True
-        currentPattern = stablePatterns[p]
         while test:
             test = False
+            currentPattern = stablePatterns[p]
             OneToMany(currentPattern)
             removeNodes(currentPattern)
             x = joinNodes(currentPattern)
@@ -151,26 +155,26 @@ def createNodes(nodes, s):
     pattern.Elabel = pattern.Elabel + 1
 
 
-def OneToMany(pattern):
+def OneToMany(p):
     nodes = []
     edges = []
-    for node in pattern.pNodes:
-        currentNode = pattern.pNodes[node]
+    for node in p.pNodes:
+        currentNode = p.pNodes[node]
         visited = set()
         for x in currentNode.outEdges:
             generalize = []
             deledges = set()
-            generalize.append(pattern.pEdges[x].destNode)
+            generalize.append(p.pEdges[x].destNode)
             deledges.add(x)
-            if pattern.pEdges[x].attackClass not in visited:
-                visited.add(pattern.pEdges[x].attackClass)
+            if p.pEdges[x].attackClass not in visited:
+                visited.add(p.pEdges[x].attackClass)
                 for y in currentNode.outEdges:
-                    if x != y and pattern.pEdges[x].attackClass == pattern.pEdges[y].attackClass:
-                        generalize.append(pattern.pEdges[y].destNode)
+                    if x != y and p.pEdges[x].attackClass == p.pEdges[y].attackClass:
+                        generalize.append(p.pEdges[y].destNode)
                         deledges.add(y)
             if len(generalize) > 1:
-                nodes.append((pattern, node, set(generalize), pattern.pEdges[x].attackClass))
-                edges.append((pattern, node, set(generalize), deledges))
+                nodes.append((p, node, set(generalize), p.pEdges[x].attackClass))
+                edges.append((p, node, set(generalize), deledges))
 
     for x in nodes:
         createNodes(x, "OneToMany")
@@ -178,46 +182,64 @@ def OneToMany(pattern):
         deleteEdges(y, "OneToMany")
 
 
-def ManyToOne(pattern):
+def ManyToOne(p):
     nodes = []
     edges = []
-    for node in pattern.pNodes:
-        currentNode = pattern.pNodes[node]
+    for node in p.pNodes:
+        currentNode = p.pNodes[node]
         visited = set()
         for x in currentNode.inEdges:
             generalize = []
             deledges = set()
-            m = pattern.pEdges[x].sourceNode
+            m = p.pEdges[x].sourceNode
             generalize.append(m)
             deledges.add(x)
-            if pattern.pEdges[x].attackClass not in visited:
-                visited.add(pattern.pEdges[x].attackClass)
+            if p.pEdges[x].attackClass not in visited:
+                visited.add(p.pEdges[x].attackClass)
                 for y in currentNode.inEdges:
-                    if x != y and pattern.pEdges[x].attackClass == pattern.pEdges[y].attackClass:
-                        generalize.append(pattern.pEdges[y].sourceNode)
+                    if x != y and p.pEdges[x].attackClass == p.pEdges[y].attackClass:
+                        generalize.append(p.pEdges[y].sourceNode)
                         deledges.add(y)
             if len(generalize) > 1:
-                nodes.append((pattern, node, set(generalize), pattern.pEdges[x].attackClass))
-                edges.append((pattern, node, set(generalize), deledges))
+                nodes.append((p, node, set(generalize), p.pEdges[x].attackClass))
+                edges.append((p, node, set(generalize), deledges))
 
     for x in nodes:
         createNodes(x, "ManyToOne")
     for y in edges:
         deleteEdges(y, "ManyToOne")
 
+import sys
+
 #key u hash table su i sourceip i destip, a value je (pattern, node)
 patternHashTable = {}
 activePatterns = {}
 stablePatterns = {}
-file = open("inside1_events_sorted.txt", "r")
+file = open(sys.argv[1])
 line = file.readline()
 plabel= 0
 stableplabel = 0
-time = int(input("Enter keep active period: "))
+time = int(sys.argv[2])
 keepActive = datetime.timedelta(seconds = time)
+count = 0
+skip = 0
+
 while line:
-    splitted = line.split(",")
-    currentAlert = Alert(splitted[9], splitted[12], splitted[37], datetime.datetime.strptime(splitted[7], '%Y-%m-%d %H:%M:%S'))
+    data = json.loads(line)
+    # print(data)
+    src_ip = data.get('src_ip', None)
+    dest_ip = data.get('dest_ip', None)
+    event_type = data['event_type']
+    timestamp = datetime.datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
+    if not src_ip or not dest_ip:
+        skip += 1
+        line = file.readline()
+        continue
+
+    currentAlert = Alert(src_ip, dest_ip, event_type, timestamp)
+    # print(currentAlert)
+    # currentAlert = Alert(splitted[9], splitted[12], splitted[37], datetime.datetime.strptime(splitted[7], '%Y-%m-%d %H:%M:%S'))
+    count += 1
     insert = False
 
     movePatt = set()
@@ -395,3 +417,9 @@ for x in inputEdges:
     outputedges.write(str(inputEdges[x]) + "," + str(x) + "\n")
 
 file.close()
+
+print("{} events processed".format(count))
+print("{} events skipped".format(skip))
+print("{} stable patterns".format(len(stablePatterns)))
+print("{} total edges".format(len(inputNodes)))
+print("{} total nodes".format(len(inputEdges)))
